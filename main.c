@@ -13,7 +13,6 @@
 #include "queue.h"
 #include "semphr.h"
 
-// Definições de pinos
 #define BUZZER_PIN 21
 #define LED_PIN_GREEN 11
 #define LED_PIN_RED 13
@@ -21,23 +20,19 @@
 #define JOYSTICK_Y 27
 #define BUTTON_R 6
 
-// Canais ADC
 #define ADC_CHANNEL_0 0
 #define ADC_CHANNEL_1 1
 
-// Configuração PWM
 #define PWM_PERIOD 2000
 #define PWM_DIVIDER 16.0
 #define PWM_LED_LEVEL 100
 
-// Configuração do Teclado
 #define NUM_LINES 4
 #define NUMBERS_PER_LINE 4
 #define PIN_LENGTH 6
 #define DEBOUNCE_TIME_MS 200
 #define TOTAL_CHARS 16
 
-// Estruturas para comunicação entre tasks
 typedef enum {
     EVENTO_NAVEGACAO,
     EVENTO_SELECAO
@@ -78,7 +73,6 @@ typedef struct {
     bool sucesso;
 } AuthResult_t;
 
-// Filas e semáforos
 QueueHandle_t xQueueInput;
 QueueHandle_t xQueueRandomizerRequest;
 QueueHandle_t xQueueRandomizerResponse;
@@ -87,12 +81,10 @@ QueueHandle_t xQueueAuthResult;
 SemaphoreHandle_t xSemaphoreButton;
 SemaphoreHandle_t xMutexMatriz;
 
-// Variáveis globais
 static char matrizes_digitos[PIN_LENGTH][NUM_LINES][NUMBERS_PER_LINE];
 ssd1306_t disp;
-uint8_t global_linha_selecionada = 0;  // Estado global da linha selecionada
+uint8_t global_linha_selecionada = 0;
 
-// Protótipos de funções
 void inicializar_display(void);
 void inicializar_joystick(void);
 void inicializar_pwm_led(uint led_pin);
@@ -101,7 +93,11 @@ void emitir_beep(uint pin, uint frequencia, uint duracao_ms);
 void mostrar_selecao(ssd1306_t *disp, uint8_t linha);
 void limpar_area_selecao(ssd1306_t *disp);
 
-// ISR do botão
+/**
+ * @brief Rotina de serviço de interrupção do botão.
+ * @param gpio Número do GPIO que causou a interrupção.
+ * @param events Máscara de eventos associados à interrupção.
+ */
 static void button_isr(uint gpio, uint32_t events) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     if (gpio == BUTTON_R) {
@@ -110,7 +106,10 @@ static void button_isr(uint gpio, uint32_t events) {
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
-// Task de Entrada (Joystick e Botão)
+/**
+ * @brief Tarefa que lê o joystick e trata pressionamentos de botão.
+ * @param pvParameters Ponteiro passado na criação da tarefa (não utilizado).
+ */
 void task_input(void *pvParameters) {
     uint16_t valor_x = 0;
     TickType_t last_button_time = 0;
@@ -118,7 +117,7 @@ void task_input(void *pvParameters) {
     uint8_t current_line = 0;
     const TickType_t debounce_move = pdMS_TO_TICKS(200);
     
-    while(1) {
+    while (1) {
         adc_select_input(ADC_CHANNEL_0);
         valor_x = adc_read();
         
@@ -158,12 +157,15 @@ void task_input(void *pvParameters) {
     }
 }
 
-// Task de Randomização
+/**
+ * @brief Tarefa responsável por embaralhar e gerar matrizes do teclado.
+ * @param pvParameters Ponteiro passado na criação da tarefa (não utilizado).
+ */
 void task_randomizer(void *pvParameters) {
     RandomizerRequest_t request;
     char matriz_flat[TOTAL_CHARS];
     
-    while(1) {
+    while (1) {
         if (xQueueReceive(xQueueRandomizerRequest, &request, portMAX_DELAY)) {
             const char chars[] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
             memcpy(matriz_flat, chars, TOTAL_CHARS);
@@ -231,17 +233,24 @@ void task_randomizer(void *pvParameters) {
     }
 }
 
-// Função para limpar área de seleção
+/**
+ * @brief Limpa a área de seleção do teclado no display.
+ * @param disp Ponteiro para a instância do display.
+ */
 void limpar_area_selecao(ssd1306_t *disp) {
     ssd1306_clear_square(disp, 0, 0, 15, 64);
 }
 
-// Função para mostrar seleção no display
+/**
+ * @brief Desenha o indicador de seleção em uma linha do display.
+ * @param disp Ponteiro para a instância do display.
+ * @param linha Índice da linha a destacar (0–3).
+ */
 void mostrar_selecao(ssd1306_t *disp, uint8_t linha) {
     uint32_t x = 10;
     uint32_t y;
     
-    switch(linha) {
+    switch (linha) {
         case 0: y = 5; break;
         case 1: y = 20; break;
         case 2: y = 35; break;
@@ -250,11 +259,14 @@ void mostrar_selecao(ssd1306_t *disp, uint8_t linha) {
     }
     
     ssd1306_draw_square(disp, x, y, 2, 5);
-    ssd1306_draw_square(disp, x+1, y+1, 2, 3);
-    ssd1306_draw_square(disp, x+2, y+2, 2, 1);
+    ssd1306_draw_square(disp, x + 1, y + 1, 2, 3);
+    ssd1306_draw_square(disp, x + 2, y + 2, 2, 1);
 }
 
-// Task de Display
+/**
+ * @brief Tarefa responsável por atualizar o display OLED.
+ * @param pvParameters Ponteiro passado na criação da tarefa (não utilizado).
+ */
 void task_display(void *pvParameters) {
     inicializar_display();
     uint8_t current_line = 0;
@@ -262,19 +274,19 @@ void task_display(void *pvParameters) {
     char senha_display[PIN_LENGTH+1] = {0};
     bool matriz_visivel = true;
     
-    while(1) {
+    while (1) {
         DisplayCommand_t cmd;
         if (xQueueReceive(xQueueDisplay, &cmd, portMAX_DELAY)) {
-            switch(cmd.tipo) {
+            switch (cmd.tipo) {
                 case DISP_ATUALIZAR_MATRIZ: {
                     matriz_visivel = true;
                     char buffer[20];
                     ssd1306_clear(&disp);
                     
                     for (int i = 0; i < NUM_LINES; i++) {
-                        sprintf(buffer, "%c %c %c %c", 
-                            cmd.data.matriz[i][0], cmd.data.matriz[i][1],
-                            cmd.data.matriz[i][2], cmd.data.matriz[i][3]);
+                        sprintf(buffer, "%c %c %c %c",
+                                cmd.data.matriz[i][0], cmd.data.matriz[i][1],
+                                cmd.data.matriz[i][2], cmd.data.matriz[i][3]);
                         ssd1306_draw_string(&disp, 25, 5 + 15*i, 1, buffer);
                     }
                     
@@ -292,7 +304,6 @@ void task_display(void *pvParameters) {
                     ssd1306_show(&disp);
                     break;
                 }
-                
                 case DISP_ATUALIZAR_SELECAO:
                     if (matriz_visivel) {
                         limpar_area_selecao(&disp);
@@ -302,7 +313,6 @@ void task_display(void *pvParameters) {
                         ssd1306_show(&disp);
                     }
                     break;
-                    
                 case DISP_ATUALIZAR_SENHA:
                     if (matriz_visivel) {
                         strncpy(senha_display, cmd.data.senha, sizeof(senha_display));
@@ -313,7 +323,6 @@ void task_display(void *pvParameters) {
                         strncpy(senha_display, cmd.data.senha, sizeof(senha_display));
                     }
                     break;
-                    
                 case DISP_MENSAGEM:
                     matriz_visivel = false;
                     ssd1306_clear(&disp);
@@ -325,55 +334,44 @@ void task_display(void *pvParameters) {
     }
 }
 
-// Task de Autenticação - Corrigida
+/**
+ * @brief Tarefa que gerencia o fluxo de autenticação e validação de senha.
+ * @param pvParameters Ponteiro passado na criação da tarefa (não utilizado).
+ */
 void task_auth(void *pvParameters) {
     uint8_t char_count = 0;
     char senha_display[PIN_LENGTH+1] = {0};
     uint8_t linhas_selecionadas[PIN_LENGTH] = {0};
     
-    // Solicitar primeira matriz (etapa 0)
     RandomizerRequest_t request = { .etapa = 0 };
     xQueueSend(xQueueRandomizerRequest, &request, 0);
     
-    // Aguardar a primeira matriz
     RandomizerResponse_t response;
     if (xQueueReceive(xQueueRandomizerResponse, &response, pdMS_TO_TICKS(1000))) {
-        DisplayCommand_t cmd_matriz = {
-            .tipo = DISP_ATUALIZAR_MATRIZ
-        };
+        DisplayCommand_t cmd_matriz = { .tipo = DISP_ATUALIZAR_MATRIZ };
         memcpy(cmd_matriz.data.matriz, response.matriz, sizeof(response.matriz));
         xQueueSend(xQueueDisplay, &cmd_matriz, 0);
         
-        DisplayCommand_t cmd_sel = {
-            .tipo = DISP_ATUALIZAR_SELECAO,
-            .data.linha = 0
-        };
+        DisplayCommand_t cmd_sel = { .tipo = DISP_ATUALIZAR_SELECAO, .data.linha = 0 };
         xQueueSend(xQueueDisplay, &cmd_sel, 0);
         global_linha_selecionada = 0;
     }
     
-    while(1) {
+    while (1) {
         InputEvent_t evento;
         if (xQueueReceive(xQueueInput, &evento, portMAX_DELAY)) {
             if (evento.tipo == EVENTO_NAVEGACAO) {
                 global_linha_selecionada = evento.linha;
-                
-                DisplayCommand_t cmd = {
-                    .tipo = DISP_ATUALIZAR_SELECAO,
-                    .data.linha = global_linha_selecionada
-                };
+                DisplayCommand_t cmd = { .tipo = DISP_ATUALIZAR_SELECAO, .data.linha = global_linha_selecionada };
                 xQueueSend(xQueueDisplay, &cmd, 0);
-            } 
-            else if (evento.tipo == EVENTO_SELECAO) {
+            } else if (evento.tipo == EVENTO_SELECAO) {
                 if (char_count < PIN_LENGTH) {
                     linhas_selecionadas[char_count] = global_linha_selecionada;
                     senha_display[char_count] = '*';
-                    senha_display[char_count+1] = '\0';
+                    senha_display[char_count + 1] = '\0';
                     char_count++;
                     
-                    DisplayCommand_t cmd_senha = {
-                        .tipo = DISP_ATUALIZAR_SENHA,
-                    };
+                    DisplayCommand_t cmd_senha = { .tipo = DISP_ATUALIZAR_SENHA };
                     strncpy(cmd_senha.data.senha, senha_display, PIN_LENGTH+1);
                     xQueueSend(xQueueDisplay, &cmd_senha, 0);
                     
@@ -383,16 +381,11 @@ void task_auth(void *pvParameters) {
                         
                         RandomizerResponse_t resp;
                         if (xQueueReceive(xQueueRandomizerResponse, &resp, pdMS_TO_TICKS(1000))) {
-                            DisplayCommand_t cmd_matriz = {
-                                .tipo = DISP_ATUALIZAR_MATRIZ
-                            };
+                            DisplayCommand_t cmd_matriz = { .tipo = DISP_ATUALIZAR_MATRIZ };
                             memcpy(cmd_matriz.data.matriz, resp.matriz, sizeof(resp.matriz));
                             xQueueSend(xQueueDisplay, &cmd_matriz, 0);
                             
-                            DisplayCommand_t cmd_sel = {
-                                .tipo = DISP_ATUALIZAR_SELECAO,
-                                .data.linha = global_linha_selecionada
-                            };
+                            DisplayCommand_t cmd_sel = { .tipo = DISP_ATUALIZAR_SELECAO, .data.linha = global_linha_selecionada };
                             xQueueSend(xQueueDisplay, &cmd_sel, 0);
                         }
                     } else {
@@ -420,48 +413,33 @@ void task_auth(void *pvParameters) {
                         AuthResult_t result = { .sucesso = senha_valida };
                         xQueueSend(xQueueAuthResult, &result, 0);
                         
-                        DisplayCommand_t cmd_msg = {
-                            .tipo = DISP_MENSAGEM
-                        };
-                        strcpy(cmd_msg.data.mensagem, 
-                              senha_valida ? "SENHA CORRETA" : "SENHA INCORRETA");
+                        DisplayCommand_t cmd_msg = { .tipo = DISP_MENSAGEM };
+                        strcpy(cmd_msg.data.mensagem,
+                               senha_valida ? "SENHA CORRETA" : "SENHA INCORRETA");
                         xQueueSend(xQueueDisplay, &cmd_msg, 0);
                         
-                        // Aguardar exibição da mensagem
                         vTaskDelay(pdMS_TO_TICKS(2000));
                         
-                        // Reiniciar estado ANTES de gerar nova matriz
                         char_count = 0;
                         global_linha_selecionada = 0;
                         memset(senha_display, 0, sizeof(senha_display));
                         memset(linhas_selecionadas, 0, sizeof(linhas_selecionadas));
                         
-                        // Solicitar nova matriz inicial
                         RandomizerRequest_t req = { .etapa = 0 };
                         xQueueSend(xQueueRandomizerRequest, &req, 0);
                         
-                        // Aguardar e exibir nova matriz imediatamente
                         RandomizerResponse_t resp;
                         if (xQueueReceive(xQueueRandomizerResponse, &resp, pdMS_TO_TICKS(1000))) {
-                            DisplayCommand_t cmd_matriz = {
-                                .tipo = DISP_ATUALIZAR_MATRIZ
-                            };
+                            DisplayCommand_t cmd_matriz = { .tipo = DISP_ATUALIZAR_MATRIZ };
                             memcpy(cmd_matriz.data.matriz, resp.matriz, sizeof(resp.matriz));
                             xQueueSend(xQueueDisplay, &cmd_matriz, 0);
                             
-                            // Forçar atualização da seleção
-                            DisplayCommand_t cmd_sel = {
-                                .tipo = DISP_ATUALIZAR_SELECAO,
-                                .data.linha = 0
-                            };
+                            DisplayCommand_t cmd_sel = { .tipo = DISP_ATUALIZAR_SELECAO, .data.linha = 0 };
                             xQueueSend(xQueueDisplay, &cmd_sel, 0);
                             global_linha_selecionada = 0;
                         }
                         
-                        // Limpar asteriscos
-                        DisplayCommand_t cmd_clear = {
-                            .tipo = DISP_ATUALIZAR_SENHA,
-                        };
+                        DisplayCommand_t cmd_clear = { .tipo = DISP_ATUALIZAR_SENHA };
                         strncpy(cmd_clear.data.senha, "", PIN_LENGTH+1);
                         xQueueSend(xQueueDisplay, &cmd_clear, 0);
                     }
@@ -471,13 +449,16 @@ void task_auth(void *pvParameters) {
     }
 }
 
-// Task de Áudio
+/**
+ * @brief Tarefa que reproduz feedback de áudio conforme resultado da autenticação.
+ * @param pvParameters Ponteiro passado na criação da tarefa (não utilizado).
+ */
 void task_audio(void *pvParameters) {
     inicializar_pwm_led(LED_PIN_GREEN);
     inicializar_pwm_led(LED_PIN_RED);
     inicializar_pwm_buzzer(BUZZER_PIN);
     
-    while(1) {
+    while (1) {
         AuthResult_t result;
         if (xQueueReceive(xQueueAuthResult, &result, portMAX_DELAY)) {
             inicializar_pwm_buzzer(BUZZER_PIN);
@@ -509,7 +490,12 @@ void task_audio(void *pvParameters) {
     }
 }
 
-// Função melhorada para emitir beep
+/**
+ * @brief Gera um beep por PWM no pino especificado.
+ * @param pin Pino GPIO conectado ao buzzer.
+ * @param frequencia Frequência em Hz.
+ * @param duracao_ms Duração em milissegundos.
+ */
 void emitir_beep(uint pin, uint frequencia, uint duracao_ms) {
     if (frequencia == 0) {
         vTaskDelay(pdMS_TO_TICKS(duracao_ms));
@@ -535,7 +521,10 @@ void emitir_beep(uint pin, uint frequencia, uint duracao_ms) {
     gpio_set_function(pin, GPIO_FUNC_PWM);
 }
 
-// Inicialização do buzzer com PWM
+/**
+ * @brief Inicializa o slice PWM para saída do buzzer.
+ * @param pin Pino GPIO a configurar para PWM.
+ */
 void inicializar_pwm_buzzer(uint pin) {
     gpio_set_function(pin, GPIO_FUNC_PWM);
     uint slice_num = pwm_gpio_to_slice_num(pin);
@@ -544,7 +533,9 @@ void inicializar_pwm_buzzer(uint pin) {
     pwm_set_gpio_level(pin, 0);
 }
 
-// Inicialização do display
+/**
+ * @brief Inicializa o display OLED via I2C.
+ */
 void inicializar_display(void) {
     i2c_init(i2c1, 400000);
     gpio_set_function(14, GPIO_FUNC_I2C);
@@ -558,7 +549,9 @@ void inicializar_display(void) {
     ssd1306_show(&disp);
 }
 
-// Inicialização do joystick
+/**
+ * @brief Inicializa entradas ADC para o joystick.
+ */
 void inicializar_joystick(void) {
     adc_init();
     adc_gpio_init(JOYSTICK_X);
@@ -566,7 +559,10 @@ void inicializar_joystick(void) {
     adc_select_input(ADC_CHANNEL_0);
 }
 
-// Inicialização PWM para LEDs
+/**
+ * @brief Configura um pino GPIO para saída PWM de LED.
+ * @param led_pin Pino GPIO conectado ao LED.
+ */
 void inicializar_pwm_led(uint led_pin) {
     uint slice = pwm_gpio_to_slice_num(led_pin);
     gpio_set_function(led_pin, GPIO_FUNC_PWM);
@@ -579,7 +575,9 @@ void inicializar_pwm_led(uint led_pin) {
     pwm_set_gpio_level(led_pin, 0);
 }
 
-// Inicialização do FreeRTOS
+/**
+ * @brief Cria filas, semáforos, configura ISR do botão e inicia as tarefas.
+ */
 void init_freertos() {
     xQueueInput = xQueueCreate(10, sizeof(InputEvent_t));
     xQueueRandomizerRequest = xQueueCreate(5, sizeof(RandomizerRequest_t));
@@ -610,6 +608,10 @@ void init_freertos() {
     }
 }
 
+/**
+ * @brief Ponto de entrada principal: inicializa hardware e inicia o RTOS.
+ * @return Não retorna.
+ */
 int main() {
     stdio_init_all();
     inicializar_joystick();
@@ -617,7 +619,7 @@ int main() {
     init_freertos();
     vTaskStartScheduler();
 
-    while(1) {
+    while (1) {
         tight_loop_contents();
     }
 }
