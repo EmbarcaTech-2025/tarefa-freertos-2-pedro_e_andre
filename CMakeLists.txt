@@ -36,6 +36,7 @@ project(embarcatech-tarefa-freertos-2 C CXX ASM)
 pico_sdk_init()
 
 add_executable(embarcatech-tarefa-freertos-2
+    src/ssd1306.c
     main.c
 )
 
@@ -45,9 +46,20 @@ target_include_directories(embarcatech-tarefa-freertos-2 PRIVATE
 )
 
 target_link_libraries(embarcatech-tarefa-freertos-2 
-    pico_stdlib 
     FreeRTOS-Kernel-Heap4 
+    pico_stdlib
+    hardware_pio
+    hardware_adc
+    hardware_pwm
     hardware_i2c
+    pico_time
+    pico_rand
+    pico_multicore
+    pico_unique_id
+    hardware_clocks
+    hardware_timer
+    hardware_sync
+    hardware_irq
     )
 
 pico_add_extra_outputs(embarcatech-tarefa-freertos-2)
