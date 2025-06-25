@@ -131,7 +131,7 @@ tarefa-freertos-2-pedro_e_andre/
 
 ## Recursos de Segurança
 
-- Dígitos são randomizados a cada uso
+- Dígitos são randomizados em todos os usos e sempre que um digito é selecionado
 - Múltiplos dígitos por linha previnem observação direta
 - Seleção por linha ao invés de dígito adiciona uma camada extra de ofuscação
 - Dois números duplicados por matriz aumentam a dificuldade de adivinhação
