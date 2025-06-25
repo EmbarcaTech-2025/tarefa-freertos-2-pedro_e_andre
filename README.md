@@ -9,7 +9,7 @@ Brasilia, junho de 2025
 
 Sistema de fechadura eletrônica com randomização automática de dígitos implementado com FreeRTOS para prevenir a visualização da senha por terceiros. Desenvolvido com a BitDogLab (Raspberry Pi Pico W) como segundo projeto de FreeRTOS da residencia do EmbarcaTech.
 
-![Demonstração do Self-Randomizing Keypad](https://i.imgur.com/3p1rBlH.gif)
+![Demonstração do Self-Randomizing Keypad](./demo.gif)
 
 ## Funcionalidades
 
