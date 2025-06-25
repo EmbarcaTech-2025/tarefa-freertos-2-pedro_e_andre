@@ -151,7 +151,7 @@ O projeto utiliza as seguintes configurações principais do FreeRTOS:
 ## Links
 
 - [Repositório do Projeto](https://github.com/EmbarcaTech-2025/tarefa-freertos-2-pedro_e_andre)
-- [Vídeo de Demonstração](https://youtu.be/tZLZauW2s9s)
+- [Vídeo de Demonstração](https://youtu.be/1ibz22kYk1E)
 - [Documentação FreeRTOS](https://www.freertos.org/Documentation/RTOS_book.html)
 
 ---
